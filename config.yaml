@@ -2,17 +2,29 @@
 
 project:
   name: "Agentic-Tool-Reproduction"
-  root_dir: "."
+  root_dir: "/root/Agentic-RAG-Tool"
 
 paths:
   # 数据存储的根目录
-  data_root: "./data"
+  data_root: "/root/autodl-tmp/data"
   # RAG 原始数据保存路径
-  rag_corpus_path: "./data/corpus/wiki_zh.jsonl"
+  rag_corpus_path: "/root/autodl-tmp/wikipedia"
 
 # RAG 检索库配置 (External Knowledge Base)
 rag_data:
   # HuggingFace 数据集配置
   huggingface_dataset:
     repo_id: "wikimedia/wikipedia"
-    subset: "20231101.zh" # 中文维基百科
+    subset: "20231101.en" # 中文维基百科
+
+  # Elasticsearch 配置
+  elasticsearch:
+    host: "http://localhost:9200"
+    index_name: "wiki_en"
+    username: ""
+    password: ""
+    
+  # 检索参数配置
+  retrieval:
+    top_k: 5
+    score_threshold: 0.0

@@ -1,2 +1,6 @@
 __pycache__/
 *.parquet
+agentic_tool.egg-info/
+
+# Ignore data directory in root, but keep src/data
+/data/

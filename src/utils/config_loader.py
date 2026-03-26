@@ -23,6 +23,17 @@ def load_config(config_path="config.yaml"):
 
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
+    
+    # 动态替换路径中的变量
+    project_root = config.get("project", {}).get("root_dir", os.getcwd())
+    if "paths" in config:
+        for key, value in config["paths"].items():
+            if isinstance(value, str):
+                try:
+                    config["paths"][key] = value.format(root_dir=project_root)
+                except KeyError:
+                    pass # 忽略无法格式化的键
+                    
     return config
 
 def get_rag_config():
