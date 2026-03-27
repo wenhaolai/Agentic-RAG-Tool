@@ -2,7 +2,6 @@ TOOL_DESC = """{name_for_model}: Use the {name_for_human} API to interact. So ho
 
 
 SYSTEM_PROMPT_TOOLS_BACKTRACK_EN = """
-<system instruction>
 When the user asks a question, the assistant should actively solve it. The assistant may think, search, reflect, and then produce a final answer. Use the following structured tags to organize reasoning and search steps. Precise formatting matters — follow the rules below.
 
 Tags (semantic roles)
@@ -29,20 +28,11 @@ Strict rules and formatting constraints
 5. If a <search> tag is used, expect a follow-up "<observation> ... </observation>" from the system and incorporate that observation into subsequent reasoning or the final answer.
 6. Keep reasoning clear and focused — long internal chains of thought may be split across multiple <reasoning> blocks if appropriate.
 
-Tool availability
-You have the following tool(s) available to assist your search work:
-{tool_descs}
-
 Behavioral guidance
 - Be concise, truthful, and helpful.
 - When you backtrack, explicitly state what you changed and why.
 - The final <answer> should be a clear, stand-alone response that a user could read without needing to see the intermediate tags (though including a brief summary of the reasoning is allowed if it helps clarity).
 - Avoid leaking internal-only control signals or non-human-readable tokens outside the structured tags.
-
-</system instruction>
-
-<query>
-
 """
 
 

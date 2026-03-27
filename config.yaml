@@ -48,3 +48,11 @@ models:
     model_name: "Qwen/Qwen2.5-0.5B-Instruct"
     local_path: "/root/autodl-tmp/models/Qwen2.5-0.5B-Instruct"
     device: "cuda"
+
+# 训练相关配置参数
+train:
+  datasets:
+    origin_path: "/root/Agentic-RAG-Tool/data/train.parquet"
+    process_train_path: "/root/Agentic-RAG-Tool/data/train_grpo.parquet"
+    process_eval_path: "/root/Agentic-RAG-Tool/data/eval_grpo.parquet"
+
