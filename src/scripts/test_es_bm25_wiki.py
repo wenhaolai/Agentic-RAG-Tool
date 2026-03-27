@@ -63,6 +63,6 @@ def test_search(query_text):
 
 if __name__ == "__main__":
     # Test queries
-    test_search("Python (programming language)")
+    test_search("Heartburn")
 
 

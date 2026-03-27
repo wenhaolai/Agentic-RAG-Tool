@@ -3,3 +3,6 @@ datasets==4.8.4
 rank_25
 jieba
 elasticsearch
+faiss-gpu
+sentence-transformers
+accelerate

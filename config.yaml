@@ -28,3 +28,23 @@ rag_data:
   retrieval:
     top_k: 5
     score_threshold: 0.0
+
+  # 向量检索配置
+  embedding:
+    model_name: "BAAI/bge-small-en-v1.5"
+    device: "cuda"
+    batch_size: 256
+
+  # FAISS 配置
+  faiss:
+    index_path: "/root/autodl-tmp/faiss_index/wiki_en.index"
+    dimension: 384
+    index_type: "Flat"
+
+# 模型配置 (Models)
+models:
+  # 生成模型 (LLM)
+  generation:
+    model_name: "Qwen/Qwen2.5-0.5B-Instruct"
+    local_path: "/root/autodl-tmp/models/Qwen2.5-0.5B-Instruct"
+    device: "cuda"
