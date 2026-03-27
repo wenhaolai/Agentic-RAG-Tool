@@ -42,9 +42,9 @@ class Tools:
 
         try:
             results = self.searcher.search(input)
-            print("==================")
-            print(results)
-            print("==================")
+            # print("==================")
+            # print(results)
+            # print("==================")
             return self.searcher.format_results(results)
         except Exception as e:
             logger.error(f"Wiki_RAG tool execution failed: {e}")
