@@ -127,7 +127,7 @@ if __name__ == "__main__":
     # 测试代码
     try:
         searcher = ESWikiSearcher()
-        test_query = "Python programming"
+        test_query = "Heartburn, acid reflux"
         
         print(f"正在搜索: '{test_query}' ...")
         results = searcher.search(test_query)
