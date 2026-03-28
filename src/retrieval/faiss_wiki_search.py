@@ -160,7 +160,7 @@ if __name__ == "__main__":
     # 测试代码
     try:
         searcher = FAISSWikiSearcher()
-        test_query = "台湾在哪个省？"
+        test_query = "西安交大是由哪几个学校合并的"
         
         print(f"\n正在搜索: '{test_query}' ...")
         results = searcher.search(test_query)

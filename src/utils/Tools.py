@@ -1,4 +1,6 @@
 from src.retrieval.es_wiki_search import ESWikiSearcher
+from src.retrieval.faiss_wiki_search import FAISSWikiSearcher
+from src.retrieval.hybrid_search import HybridSearcher
 import logging
 
 # Configure logger
@@ -9,9 +11,9 @@ class Tools:
         self.toolConfig = self._tools()
         # Initialize searcher once to reuse connection
         try:
-            self.searcher = ESWikiSearcher()
+            self.searcher = HybridSearcher()
         except Exception as e:
-            logger.error(f"Failed to initialize ESWikiSearcher: {e}")
+            logger.error(f"Failed to initialize HybridSearcher: {e}")
             self.searcher = None
 
     def _tools(self):
