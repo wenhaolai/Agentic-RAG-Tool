@@ -91,11 +91,8 @@ class ESWikiSearcher:
                     
                 source = hit['_source']
                 results.append({
-                    "id": source.get("id"),
-                    "title": source.get("title"),
-                    "url": source.get("url"),
                     "text": source.get("text"),
-                    "score": score
+                    "es_score": score
                 })
             
             return results
@@ -115,8 +112,7 @@ class ESWikiSearcher:
         for i, res in enumerate(results):
             text_preview = res['text'][:200].replace('\n', ' ') + "..."
             doc_str = (
-                f"[{i+1}] Title: {res['title']} (Score: {res['score']:.4f})\n"
-                f"    URL: {res['url']}\n"
+                f"[{i+1}] (Score: {res['es_score']:.4f})\n"
                 f"    Text: {text_preview}\n"
             )
             output.append(doc_str)

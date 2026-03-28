@@ -1,4 +1,6 @@
 import os
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+
 import sys
 import logging
 import faiss
@@ -26,14 +28,14 @@ class FAISSWikiBuilder:
         
         # Embedding config
         emb_config = self.config.get("rag_data", {}).get("embedding", {})
-        self.model_name = emb_config.get("model_name", "BAAI/bge-small-en-v1.5")
+        self.model_name = emb_config.get("model_name", "BAAI/bge-small-zh-v1.5")
         self.device = emb_config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
         self.emb_batch_size = emb_config.get("batch_size", 256)
         
         # FAISS config
         faiss_config = self.config.get("rag_data", {}).get("faiss", {})
         self.index_path = faiss_config.get("index_path", "faiss_index/wiki_en.index")
-        self.dimension = faiss_config.get("dimension", 384)
+        self.dimension = faiss_config.get("dimension", 512)
         self.index_type = faiss_config.get("index_type", "Flat")
         
         # Initialize resources
@@ -44,7 +46,13 @@ class FAISSWikiBuilder:
         """Initialize SentenceTransformer model."""
         logger.info(f"Initializing embedding model: {self.model_name} on {self.device}...")
         try:
-            self.model = SentenceTransformer(self.model_name, device=self.device)
+            # 开启 FP16 半精度加速 (仅限 CUDA)
+            model_kwargs = {"torch_dtype": torch.float16} if "cuda" in self.device else {}
+            self.model = SentenceTransformer(
+                self.model_name, 
+                device=self.device,
+                model_kwargs=model_kwargs
+            )
             logger.info("Model loaded successfully.")
         except Exception as e:
             logger.error(f"Failed to load model {self.model_name}: {e}")
@@ -86,45 +94,65 @@ class FAISSWikiBuilder:
         total_docs = len(data)
         logger.info(f"Dataset loaded. Total documents: {total_docs}")
 
-        # Batch processing
-        batch_texts = []
-        batch_ids = [] # Validating ID alignment
+        # Parameters for chunking based on character length
+        chunk_size = 512
+        chunk_overlap = 100
         
         # We need to manage memory, so processed in chunks
         # Usually dataset iteration is fast, bottleneck is encoding.
         
-        logger.info("Starting embedding and indexing...")
+        logger.info("Starting chunking, embedding and indexing...")
         
-        # 批量大小 (dataset iteration batch)
-        # This can be larger than embedding batch size
+        # 批量大小 (embedding batch size trigger)
         process_batch_size = 10000 
+        texts_buffer = []
         
-        for i in tqdm(range(0, total_docs, process_batch_size), desc="Indexing"):
-            end_idx = min(i + process_batch_size, total_docs)
-            batch_data = data[i:end_idx]
+        for row in tqdm(data, desc="Indexing"):
+            title = row.get('title') or ""
+            text = row.get('text') or ""
             
-            # Prepare texts: Title + " " + Text
-            # Handle potential None values
-            texts = [
-                (row.get('title') or "") + " " + (row.get('text') or "") 
-                for row in batch_data
-            ]
-            
-            # Encode
-            # normalize_embeddings=True for Cosine Similarity user with IndexFlatIP
+            if not text:
+                texts_buffer.append(title)
+            else:
+                start = 0
+                while start < len(text):
+                    chunk = text[start:start + chunk_size]
+                    # Prepare texts: Title + " " + Chunk
+                    texts_buffer.append(title + " " + chunk)
+                    start += (chunk_size - chunk_overlap)
+                    
+            if len(texts_buffer) >= process_batch_size:
+                # Encode
+                # normalize_embeddings=True for Cosine Similarity user with IndexFlatIP
+                embeddings = self.model.encode(
+                    texts_buffer, 
+                    batch_size=self.emb_batch_size, 
+                    show_progress_bar=False, 
+                    convert_to_numpy=True,
+                    normalize_embeddings=True
+                )
+
+                print(embeddings.shape)
+                
+                # Add to index
+                self.index.add(embeddings)
+                
+                # Explicitly clear memory just in case
+                del embeddings
+                texts_buffer = []
+                
+        # Process remaining chunks
+        if len(texts_buffer) > 0:
             embeddings = self.model.encode(
-                texts, 
+                texts_buffer, 
                 batch_size=self.emb_batch_size, 
                 show_progress_bar=False, 
                 convert_to_numpy=True,
                 normalize_embeddings=True
             )
-            
-            # Add to index
             self.index.add(embeddings)
-            
-            # Explicitly clear memory just in case
-            del embeddings, texts, batch_data
+            del embeddings
+            texts_buffer = []
 
         logger.info(f"Indexing complete. Total vectors in index: {self.index.ntotal}")
 
@@ -144,5 +172,5 @@ class FAISSWikiBuilder:
             logger.error(f"Failed to save index: {e}")
 
 if __name__ == "__main__":
-    builder = FAISSWikiBuilder()
+    builder = FAISSWikiBuilder(config_path="config.yaml")
     builder.build()
