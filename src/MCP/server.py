@@ -3,9 +3,15 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 from src.retrieval.es_wiki_search import ESWikiSearcher
+from src.retrieval.hybrid_search import HybridSearcher
 
 # Initialize the FastMCP server
 mcp = FastMCP()
+
+# Initialize the searcher once globally when the server starts
+print("正在初始化全局 HybridSearcher 实例...")
+searcher = HybridSearcher()
+print("全局 HybridSearcher 实例加载完成。")
 
 @mcp.tool(name="wiki_rag")
 def wiki_rag(
@@ -20,8 +26,10 @@ def wiki_rag(
     Searches the wiki for information about the specified entity or query keyword.
     """
     try:
-        searcher = ESWikiSearcher()
-        return searcher.format_results(searcher.search(input))
+        # Use the global instance instead of recreating it
+        results = searcher.search(input)
+        print(results)
+        return results
     except Exception as e:
         print(f"Error occurred while searching wiki: {e}")
         return {"error": str(e)}

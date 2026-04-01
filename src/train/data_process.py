@@ -15,29 +15,6 @@ import pandas as pd
 from src.utils.config_loader import load_config
 from src.data.prompt import SYSTEM_PROMPT_TOOLS_BACKTRACK_EN
 
-async def get_mcp_tools(mcp_cfg: dict) -> list[dict]:
-    """Get tools from MCP server."""
-    mcp_cfg = mcp_cfg
-    client = Client(**mcp_cfg)
-    async with client:
-        tools = await client.list_tools()
-    return tools
-
-
-def convert_to_openai_tools(tools: list[Tool]) -> dict[str, list[dict[str, Any]]]:
-    functions = []
-    for tool in tools:
-        function = {
-            "type": "function",
-            "function": {
-                "name": tool.name,
-                "description": tool.description or tool.name,
-                "parameters": tool.inputSchema or {},
-            },
-        }
-        functions.append(function)
-    return {"tools": functions}
-
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_dir", default=None, help="The save directory for the preprocessed dataset.")
@@ -55,6 +32,7 @@ if __name__=="__main__":
     arg = parser.parse_args()
 
     # 准备MCP格式的调用工具
+    from src.data.prompt import get_mcp_tools, convert_to_openai_tools
     mcp_config = {"transport": arg.mcp_server_url}
     loop = asyncio.get_event_loop()
     mcp_tools = loop.run_until_complete(get_mcp_tools(mcp_cfg=mcp_config))

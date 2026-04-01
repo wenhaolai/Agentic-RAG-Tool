@@ -11,7 +11,8 @@ class Tools:
         self.toolConfig = self._tools()
         # Initialize searcher once to reuse connection
         try:
-            self.searcher = HybridSearcher()
+            # self.searcher = HybridSearcher()
+            print("pass this file")
         except Exception as e:
             logger.error(f"Failed to initialize HybridSearcher: {e}")
             self.searcher = None
@@ -47,7 +48,7 @@ class Tools:
             # print("==================")
             # print(results)
             # print("==================")
-            return self.searcher.format_results(results)
+            return results
         except Exception as e:
             logger.error(f"Wiki_RAG tool execution failed: {e}")
             return f"Error executing search: {str(e)}"

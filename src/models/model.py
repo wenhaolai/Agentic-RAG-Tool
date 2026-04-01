@@ -10,7 +10,6 @@ from transformers import (
     StoppingCriteriaList,
 )
 
-from src.utils.Tools import Tools
 # Import from the local mask_utils we just created
 from src.models.mask_utils import (
     apply_masked_spans,
@@ -88,7 +87,8 @@ class AgenticRAGModel(PreTrainedModel):
         super().__init__(model.config)
         self.model = model
         self.tokenizer = tokenizer
-        self.tool = Tools()
+        self.tool = None
+        self.mcp_client = kwargs.get('mcp_client', None)  # 注入可选的 MCP client
         self.masked_spans_per_sample = []       # List of (prev_start, prev_end, backtrack_end)
         self.masked_parellel_spans_per_sample = []  # Parallel search spans
 
@@ -217,17 +217,41 @@ class AgenticRAGModel(PreTrainedModel):
         return self(obtain_logits=False, **kwargs)
 
     def call_plugin(self, plugin_name: str, plugin_args: str) -> str:
-        """ Invoke external tool """
+        """ Invoke external tool using MCP Client if provided, else fallback to local Tools """
         try:
-            # Try parsing as JSON first
             args = json5.loads(plugin_args)
+            
+            # 1. 优先尝试使用 MCP Client 调用
+            if hasattr(self, 'mcp_client') and self.mcp_client is not None:
+                try:
+                    import asyncio
+
+                    async def run_tool():
+                        async with self.mcp_client:
+                            return await self.mcp_client.call_tool(name=plugin_name, arguments=args)
+                            
+                    # Using asyncio.run to create a fresh loop and execute
+                    result = asyncio.run(run_tool())
+                    
+                    # 尝试格式化提取 MCP 返回的结果
+                    if hasattr(result, 'content') and isinstance(result.content, list):
+                        result_str = "\n".join([item.text for item in result.content if hasattr(item, 'text')])
+                    else:
+                        result_str = str(result)
+                    return f"\n<observation>\n{result_str}\n</observation>\n"
+                except Exception as e:
+                    return f"\n<observation>\nMCP Tool execution error: {e}\n</observation>\n"
+
+            # 2. 如果不具备 mcp_client 属性，降级退回本地的旧工具逻辑
             kwargs = {"input": args}
+            
         except Exception:
-            # Fallback to raw string
+            # Fallback to raw string if JSON fails
             kwargs = {"input": plugin_args}
 
+        # 降级工具逻辑
         if not hasattr(self.tool, plugin_name):
-            return f"Error: Plugin {plugin_name} not found"
+            return f"\n<observation>\nError: Plugin {plugin_name} not found\n</observation>\n"
 
         try:
             result = getattr(self.tool, plugin_name)(**kwargs)
@@ -235,24 +259,28 @@ class AgenticRAGModel(PreTrainedModel):
                 result_str = "\n".join(str(item) for item in result)
             else:
                 result_str = str(result)
-            return f"\nObservation:{result_str}"
+            return f"\n<observation>\n{result_str}\n</observation>\n"
         except Exception as e:
-            return f"\nObservation: Tool execution error: {e}"
+            return f"\n<observation>\nLocal Tool execution error: {e}\n</observation>\n"
 
     def parse_latest_plugin_call(self, text: str) -> Tuple[str, str]:
-        """ Extract plugin name and arguments """
-        pattern = r'\[(.*?)\]:\s*(?:"(.*?)"|(.*))'
-        match = re.match(pattern, text)
+        """ Extract plugin name and arguments adhering to the new JSON block tag """
+        # 我们之前在 prompt 修改中将格式强制为：
+        # <search> [tool_name]: {"param": "value"} </search>
+        pattern = r'\[(.*?)\]:\s*({.*})'
+        match = re.search(pattern, text, re.DOTALL)
         if match:
-            # name = match.group(1) # Not used in original fixed logic
-            args = match.group(2) or match.group(3) or ""
-        else:
-            args = text
-        
-        # Hardcoded to Wiki_RAG as in original for now
-        name = "Wiki_RAG"
-        # name = re.sub(r"[^a-zA-Z_]", "", name)
-        return name, args.strip()
+            name = match.group(1).strip()
+            args = match.group(2).strip()
+            return name, args
+            
+        # 降级提取 (防模型输出不稳定)
+        fallback_pattern = r'\[(.*?)\]:\s*(.*)'
+        match = re.search(fallback_pattern, text, re.DOTALL)
+        if match:
+            return match.group(1).strip(), match.group(2).strip()
+
+        return "unknown_tool", text.strip()
 
     def padding_and_truncate(self, all_outputs, device, max_length_for_gather):
         """ Pad and truncate outputs to valid batch tensor """
@@ -475,6 +503,9 @@ class AgenticRAGModel(PreTrainedModel):
                             
                         # Parse and Call Tool
                         tool_name, tool_args = self.parse_latest_plugin_call(gen_text)
+                        
+                        # 重点修改：由于新的 call_plugin 本身包装了 <observation> 标签作为返回值
+                        # 我们这里只需要获取观察结果，不需要在外层再套一层Observation了
                         obs = self.call_plugin(tool_name, tool_args)
                         
                         path_tag = f"path{i_beam+1}"
@@ -483,7 +514,8 @@ class AgenticRAGModel(PreTrainedModel):
                         
                     # Construct merged text
                     final_search_block = "\n".join(search_lines) + "\n</search>"
-                    final_obs_block = "<observation>\n" + "\n".join(obs_lines) + "\n</observation>"
+                    # 由于上面的 obs 自己包含了 <observation> 标签对，这里不再进行额外拼接外部标签
+                    final_obs_block = "\n".join(obs_lines)
                     
                     merged_text = prefix_text + "\n" + final_search_block + "\n" + final_obs_block
                     
