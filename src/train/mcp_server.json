@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "mcp1": {
+    "wiki_rag_server": {
       "url": "http://localhost:8000/mcp"
     }
   }

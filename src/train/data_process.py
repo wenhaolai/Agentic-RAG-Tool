@@ -49,6 +49,7 @@ if __name__=="__main__":
     def make_map_fn(split):
         def process_fn(example, idx):
             question = example.pop("question")
+            answer = example.get("answer")
 
             data = {
                 "data_source": data_source,
@@ -63,7 +64,8 @@ if __name__=="__main__":
                     }
                 ],
                 "ability": "tool",
-                "reward_model": {"style": "rule"},
+                "reward_model": {"style": "rule",
+                                 "grand_truth": {"target": answer}},
                 "extra_info": {
                     "split": split,
                     "index": idx,
